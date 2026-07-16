@@ -9,12 +9,14 @@
 'use strict';
 
 const express = require('express');
+const authRoutes = require('../modules/auth/auth.routes');
 
 const router = express.Router();
 
-// Module routers (auth, subjects, source-materials, exams, etc.) will be
+router.use('/auth', authRoutes);
+
+// Further module routers (subjects, source-materials, exams, etc.) will be
 // registered here in subsequent tasks, e.g.:
-//   router.use('/auth', authRoutes);
 //   router.use('/subjects', subjectRoutes);
 
 module.exports = router;
