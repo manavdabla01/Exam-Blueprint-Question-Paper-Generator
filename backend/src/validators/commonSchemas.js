@@ -66,10 +66,32 @@ function shortText(maxLength = 150) {
   return Joi.string().trim().min(1).max(maxLength).required();
 }
 
+/**
+ * Builds a reusable Joi object schema for list/search endpoints, combining
+ * pagination with an optional search term and a sort field restricted to
+ * a caller-supplied whitelist of sortable field names.
+ *
+ * @param {string[]} sortableFields - Allowed values for `sortBy` (e.g. ['name', 'grade', 'createdAt'])
+ * @param {string} [defaultSortBy] - Default sort field if none supplied
+ * @returns {import('joi').ObjectSchema}
+ */
+function listQuerySchema(sortableFields, defaultSortBy) {
+  return Joi.object({
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+    search: Joi.string().trim().max(150).allow('').optional(),
+    sortBy: Joi.string()
+      .valid(...sortableFields)
+      .default(defaultSortBy || sortableFields[0]),
+    sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
+  });
+}
+
 module.exports = {
   email,
   password,
   publicId,
   pagination,
   shortText,
+  listQuerySchema,
 };

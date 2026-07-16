@@ -237,3 +237,11 @@ CREATE TABLE generated_exams (
     CONSTRAINT chk_generation_attempts
         CHECK (generation_attempts >= 1 AND generation_attempts <= 5)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+ALTER TABLE source_materials
+  ADD COLUMN title VARCHAR(200) NULL AFTER subject_id,
+  ADD COLUMN description VARCHAR(1000) NULL AFTER title;
+
+-- Supports title search/sort without a full-table scan once volume grows.
+CREATE INDEX idx_source_materials_title ON source_materials (title);

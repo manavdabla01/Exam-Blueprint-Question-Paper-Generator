@@ -10,13 +10,16 @@
 
 const express = require('express');
 const authRoutes = require('../modules/auth/auth.routes');
+const subjectRoutes = require('../modules/subject/subject.routes');
+const sourceMaterialRoutes = require('../modules/sourceMaterial/sourceMaterial.routes');
 
 const router = express.Router();
 
 router.use('/auth', authRoutes);
+router.use('/subjects', subjectRoutes);
+router.use('/source-materials', sourceMaterialRoutes);
 
-// Further module routers (subjects, source-materials, exams, etc.) will be
-// registered here in subsequent tasks, e.g.:
-//   router.use('/subjects', subjectRoutes);
+// Further module routers (exams, etc.) will be registered here in
+// subsequent tasks.
 
 module.exports = router;
