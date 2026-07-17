@@ -1,47 +1,110 @@
 /**
  * sourceMaterial.service.js
  *
- * Business logic for tenant-scoped source material metadata management.
- * This task implements metadata only — no file upload, storage, OCR, or
- * Claude integration. Only `source_type = 'text'` is accepted at creation
- * time, since 'file' and 'image' types require an actual uploaded file
- * (out of scope here); attempting to create those types is rejected by
- * validation before this layer is ever reached (see
- * sourceMaterial.validation.js).
+ * Business logic for tenant-scoped source material management, covering
+ * both text-content sources (pasted text, stored directly in the
+ * database) and file-based sources (pdf/docx/image, uploaded via
+ * multipart/form-data and persisted to disk by upload.service.js).
+ *
+ * This module does NOT perform OCR or call the Claude API — file-based
+ * sources are created with `status: 'pending'`, awaiting a future
+ * processing step. Text sources are marked `status: 'processed'`
+ * immediately since no extraction step is needed for already-typed text.
+ *
+ * API-level `sourceType` values ('text' | 'pdf' | 'docx' | 'image') are
+ * intentionally more granular than the database's `source_type` ENUM
+ * ('text' | 'file' | 'image', fixed by the Task 2 schema): 'pdf' and
+ * 'docx' both map to the database's 'file' type, while the specific kind
+ * of file is still recoverable from the stored `mime_type`/
+ * `original_filename`. This avoids an ENUM migration while still letting
+ * the API distinguish document types at the validation layer.
  *
  * Every function requires the authenticated teacher's internal id and
- * delegates all persistence to sourceMaterial.repository.js. Subject
- * ownership is verified by reusing subject.repository.js directly (not
- * duplicating a query) — a source material's `subject_id` must belong to
- * the same teacher creating it, so we resolve and validate the subject
- * first for every create.
+ * delegates persistence to sourceMaterial.repository.js. Subject
+ * ownership is verified by reusing subject.repository.js directly.
  */
 
 'use strict';
 
 const sourceMaterialRepository = require('./sourceMaterial.repository');
 const subjectRepository = require('../subject/subject.repository');
+const uploadService = require('../../services/upload.service');
 const { toPublicSourceMaterial, toPublicSourceMaterialDetail } = require('./sourceMaterial.mapper');
 const { generatePublicId } = require('../../utils/uuidGenerator');
 const NotFoundError = require('../../utils/errors/NotFoundError');
+const AppError = require('../../utils/errors/AppError');
+const ValidationError = require('../../utils/errors/ValidationError');
+const HTTP_STATUS = require('../../constants/httpStatus');
 const APP_CONSTANTS = require('../../constants/appConstants');
+const logger = require('../../utils/logger');
 
 /**
- * Creates a new source material metadata record. Only text-type sources
- * are supported at this stage; the raw text content is stored directly
- * and the record is marked 'processed' immediately since no
- * transcription/OCR step is needed for already-typed text.
+ * Maps an API-level sourceType ('pdf' | 'docx' | 'image') to the
+ * database's source_type ENUM value.
+ *
+ * @param {string} apiSourceType - 'pdf' | 'docx' | 'image'
+ * @returns {string} 'file' | 'image'
+ */
+function toDbSourceType(apiSourceType) {
+  return apiSourceType === 'image' ? APP_CONSTANTS.SOURCE_TYPE.IMAGE : APP_CONSTANTS.SOURCE_TYPE.FILE;
+}
+
+const EXPECTED_MIME_TYPES_BY_SOURCE_TYPE = Object.freeze({
+  pdf: ['application/pdf'],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  image: ['image/jpeg', 'image/png'],
+});
+
+/**
+ * Verifies that an uploaded file's actual MIME type is consistent with
+ * the `sourceType` the client declared, so a record is never persisted
+ * as (for example) "image" while actually containing a PDF.
+ *
+ * @param {string} sourceType - 'pdf' | 'docx' | 'image'
+ * @param {string} mimetype - The uploaded file's claimed MIME type
+ * @throws {ValidationError} If the MIME type does not match the declared sourceType
+ */
+function assertMimeMatchesSourceType(sourceType, mimetype) {
+  const expected = EXPECTED_MIME_TYPES_BY_SOURCE_TYPE[sourceType];
+  if (expected && !expected.includes(mimetype)) {
+    throw new ValidationError('Uploaded file type does not match the declared sourceType', [
+      { field: 'sourceType', message: `Expected a file of type ${expected.join(' or ')} for sourceType "${sourceType}"` },
+    ]);
+  }
+}
+
+/**
+ * Creates a new source material record — either text-content or
+ * file-based, depending on `sourceType`.
+ *
+ * Flow for file-based sources: validate subject ownership → save the
+ * file to disk (upload.service.js) → create the database record → return
+ * public metadata. If the database write fails after the file was
+ * already written, the orphaned file is cleaned up on a best-effort
+ * basis before the error propagates.
  *
  * @param {number} teacherId - Internal auto-increment id of the authenticated teacher
  * @param {Object} input
+ * @param {string} input.teacherPublicId - Authenticated teacher's public UUID (used for storage path)
  * @param {string} input.subjectId - Public UUID of the subject this source belongs to
  * @param {string} input.title - Human-facing title
  * @param {string|null} [input.description] - Optional longer description
- * @param {string} input.rawTextContent - The pasted text content
+ * @param {string} input.sourceType - 'text' | 'pdf' | 'docx' | 'image'
+ * @param {string} [input.rawTextContent] - Required when sourceType='text'
+ * @param {Object} [input.uploadedFile] - Required when sourceType is 'pdf'|'docx'|'image'
+ * @param {Buffer} [input.uploadedFile.buffer] - Raw file bytes (from Multer memory storage)
+ * @param {string} [input.uploadedFile.originalname] - Client-supplied original filename
+ * @param {string} [input.uploadedFile.sanitizedFilename] - Sanitized filename (see upload.middleware.js)
+ * @param {string} [input.uploadedFile.mimetype] - Claimed MIME type
+ * @param {number} [input.uploadedFile.size] - File size in bytes
  * @returns {Promise<Object>} The newly created source material in its public shape
  * @throws {NotFoundError} If the subject does not exist or is not owned by this teacher
+ * @throws {AppError} 422 if a file-based sourceType is missing its uploaded file
  */
-async function createSourceMaterial(teacherId, { subjectId, title, description = null, rawTextContent }) {
+async function createSourceMaterial(
+  teacherId,
+  { teacherPublicId, subjectId, title, description = null, sourceType, rawTextContent, uploadedFile }
+) {
   const subjectRow = await subjectRepository.findByPublicId(teacherId, subjectId);
   if (!subjectRow) {
     throw new NotFoundError('Subject not found');
@@ -49,16 +112,59 @@ async function createSourceMaterial(teacherId, { subjectId, title, description =
 
   const publicId = generatePublicId();
 
-  await sourceMaterialRepository.create({
-    teacherId,
-    subjectId: subjectRow.id,
-    publicId,
-    sourceType: APP_CONSTANTS.SOURCE_TYPE.TEXT,
-    title,
-    description,
-    rawTextContent,
-    status: APP_CONSTANTS.SOURCE_STATUS.PROCESSED,
+  if (sourceType === APP_CONSTANTS.SOURCE_TYPE.TEXT) {
+    await sourceMaterialRepository.create({
+      teacherId,
+      subjectId: subjectRow.id,
+      publicId,
+      sourceType: APP_CONSTANTS.SOURCE_TYPE.TEXT,
+      title,
+      description,
+      rawTextContent,
+      status: APP_CONSTANTS.SOURCE_STATUS.PROCESSED,
+    });
+
+    const createdRow = await sourceMaterialRepository.findByPublicId(teacherId, publicId);
+    return toPublicSourceMaterialDetail(createdRow);
+  }
+
+  if (!uploadedFile) {
+    throw new AppError(
+      'A file upload is required for this source type',
+      HTTP_STATUS.UNPROCESSABLE_ENTITY,
+      'FILE_REQUIRED'
+    );
+  }
+
+  assertMimeMatchesSourceType(sourceType, uploadedFile.mimetype);
+
+  const { relativePath } = await uploadService.saveFile({
+    buffer: uploadedFile.buffer,
+    teacherPublicId,
+    subjectPublicId: subjectRow.public_id,
+    sanitizedFilename: uploadedFile.sanitizedFilename,
   });
+
+  try {
+    await sourceMaterialRepository.create({
+      teacherId,
+      subjectId: subjectRow.id,
+      publicId,
+      sourceType: toDbSourceType(sourceType),
+      title,
+      description,
+      originalFilename: uploadedFile.originalname,
+      filePath: relativePath,
+      fileSizeBytes: uploadedFile.size,
+      mimeType: uploadedFile.mimetype,
+      status: APP_CONSTANTS.SOURCE_STATUS.PENDING,
+    });
+  } catch (error) {
+    await uploadService.deleteFile(relativePath).catch((cleanupError) => {
+      logger.error(`Failed to clean up orphaned upload after DB error: ${cleanupError.message}`);
+    });
+    throw error;
+  }
 
   const createdRow = await sourceMaterialRepository.findByPublicId(teacherId, publicId);
   return toPublicSourceMaterialDetail(createdRow);

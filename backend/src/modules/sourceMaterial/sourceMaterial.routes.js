@@ -12,6 +12,7 @@ const express = require('express');
 const { authenticate } = require('../../middlewares/auth.middleware');
 const resolveTeacherContext = require('../../middlewares/resolveTeacherContext.middleware');
 const validate = require('../../middlewares/validate.middleware');
+const handleSourceMaterialUpload = require('../../middlewares/upload.middleware');
 const sourceMaterialController = require('./sourceMaterial.controller');
 const {
   createSourceMaterialSchema,
@@ -24,7 +25,12 @@ const router = express.Router();
 
 router.use(authenticate(), resolveTeacherContext());
 
-router.post('/', validate(createSourceMaterialSchema, 'body'), sourceMaterialController.createSourceMaterial);
+router.post(
+  '/',
+  handleSourceMaterialUpload(),
+  validate(createSourceMaterialSchema, 'body'),
+  sourceMaterialController.createSourceMaterial
+);
 
 router.get('/', validate(listSourceMaterialsSchema, 'query'), sourceMaterialController.listSourceMaterials);
 

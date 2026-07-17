@@ -1,12 +1,12 @@
 /**
  * sourceMaterial.validation.js
  *
- * Joi schemas for the source-material module's endpoints. Creation is
- * intentionally restricted to `sourceType: 'text'` — 'file' and 'image'
- * require an actual uploaded file, which is out of scope for this task
- * (no Multer/upload pipeline implemented yet). Submitting 'file' or
- * 'image' here is rejected at the validation layer with a clear message
- * rather than silently accepted and left in a broken half-created state.
+ * Joi schemas for the source-material module's endpoints. Supports both
+ * text-content creation (JSON body, sourceType='text', rawTextContent
+ * required) and file-based creation (multipart/form-data,
+ * sourceType='pdf'|'docx'|'image', file carried in the `file` field and
+ * validated by upload.middleware.js rather than Joi, since Joi only
+ * inspects `req.body`/`req.params`/`req.query`, never `req.file`).
  */
 
 'use strict';
@@ -18,19 +18,34 @@ const SORTABLE_FIELDS = ['title', 'createdAt', 'updatedAt'];
 
 /**
  * POST /api/v1/source-materials
- * Body: { subjectId, title, description?, sourceType, rawTextContent }
+ * Body (JSON, sourceType='text'): { subjectId, title, description?, sourceType: 'text', rawTextContent }
+ * Body (multipart/form-data, sourceType='pdf'|'docx'|'image'): { subjectId, title, description?, sourceType } + file field
+ *
+ * `rawTextContent` is required only for sourceType='text' and forbidden
+ * otherwise (file-based sources carry their content in the uploaded file,
+ * validated separately by upload.middleware.js — Joi cannot inspect
+ * `req.file`, so the file's presence is checked in the controller).
  */
 const createSourceMaterialSchema = Joi.object({
   subjectId: commonSchemas.publicId,
   title: commonSchemas.shortText(200),
   description: Joi.string().trim().max(1000).allow('', null).optional(),
-  sourceType: Joi.string().valid('text').required().messages({
-    'any.only':
-      'Only "text" source materials can be created via this endpoint. File and image uploads are not yet available.',
+  sourceType: Joi.string().valid('text', 'pdf', 'docx', 'image').required().messages({
+    'any.only': 'sourceType must be one of: text, pdf, docx, image',
   }),
-  rawTextContent: Joi.string().trim().min(1).max(100000).required().messages({
-    'string.empty': 'rawTextContent is required for text source materials',
-  }),
+  rawTextContent: Joi.string()
+    .trim()
+    .min(1)
+    .max(100000)
+    .when('sourceType', {
+      is: 'text',
+      then: Joi.required(),
+      otherwise: Joi.forbidden(),
+    })
+    .messages({
+      'string.empty': 'rawTextContent is required for text source materials',
+      'any.unknown': 'rawTextContent must not be provided for file-based source materials',
+    }),
 });
 
 /**

@@ -17,7 +17,10 @@ const { sanitizeString } = require('../../utils/sanitize.util');
 
 /**
  * POST /api/v1/source-materials
- * Creates a new text-based source material metadata record.
+ * Creates a new source material. Accepts either a JSON body
+ * (sourceType='text', with rawTextContent) or a multipart/form-data
+ * request (sourceType='pdf'|'docx'|'image', with the file under the
+ * `file` field, already validated and sanitized by upload.middleware.js).
  *
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -26,11 +29,24 @@ const createSourceMaterial = asyncHandler(async (req, res) => {
   const title = sanitizeString(req.body.title);
   const description = req.body.description ? sanitizeString(req.body.description) : null;
 
+  const uploadedFile = req.file
+    ? {
+        buffer: req.file.buffer,
+        originalname: req.file.originalname,
+        sanitizedFilename: req.file.sanitizedFilename,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+      }
+    : undefined;
+
   const sourceMaterial = await sourceMaterialService.createSourceMaterial(req.teacher.id, {
+    teacherPublicId: req.teacher.publicId,
     subjectId: req.body.subjectId,
     title,
     description,
+    sourceType: req.body.sourceType,
     rawTextContent: req.body.rawTextContent,
+    uploadedFile,
   });
 
   return successResponse(res, {

@@ -1,23 +1,21 @@
-# Roadmap
-
 ## ✅ Completed
 
 - System Architecture
 - Database Schema
 - Backend Foundation
 - Security Foundation
-- Authentication Module
+- Authentication
+- Academic Domain
 
 ## 🚧 In Progress
 
-- Secure File Upload & Subject Management
+- Secure Upload Pipeline
 
 ## ⏳ Planned
 
-- Source Material Processing
-- Claude Vision Integration
-- OCR Pipeline
-- Exam Blueprint Engine
-- Question Paper Generator
-- Frontend Dashboard
+- Claude Vision OCR
+- AI Processing
+- Exam Blueprint
+- Question Paper Generation
+- Frontend
 - Deployment

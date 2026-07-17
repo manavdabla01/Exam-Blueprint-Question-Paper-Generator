@@ -20,24 +20,45 @@ const SORTABLE_COLUMNS = Object.freeze({
 });
 
 /**
- * Inserts a new source material metadata row.
+ * Inserts a new source material metadata row. Supports both text-content
+ * sources (raw_text_content populated, file fields null) and file-based
+ * sources (original_filename/file_path/file_size_bytes/mime_type
+ * populated, raw_text_content null).
  *
  * @param {Object} data
  * @param {number} data.teacherId - Internal auto-increment teacher id (denormalized owner)
  * @param {number} data.subjectId - Internal auto-increment subject id this source belongs to
  * @param {string} data.publicId - Pre-generated UUIDv7 public identifier
- * @param {string} data.sourceType - One of the source_type ENUM values (see appConstants.SOURCE_TYPE)
+ * @param {string} data.sourceType - One of the source_type ENUM values: 'text' | 'file' | 'image'
  * @param {string|null} data.title - Human-facing title for the source material
  * @param {string|null} data.description - Optional longer description
- * @param {string|null} data.rawTextContent - Raw pasted text content (only for source_type = 'text')
+ * @param {string|null} [data.rawTextContent] - Raw pasted text content (only for source_type = 'text')
+ * @param {string|null} [data.originalFilename] - Client-supplied original filename (file/image only)
+ * @param {string|null} [data.filePath] - Path relative to the upload root where the file is stored (file/image only)
+ * @param {number|null} [data.fileSizeBytes] - File size in bytes (file/image only)
+ * @param {string|null} [data.mimeType] - Claimed MIME type of the uploaded file (file/image only)
  * @param {string} data.status - One of the source_status ENUM values (see appConstants.SOURCE_STATUS)
  * @returns {Promise<number>} The internal auto-increment id of the newly created row
  */
-async function create({ teacherId, subjectId, publicId, sourceType, title, description, rawTextContent, status }) {
+async function create({
+  teacherId,
+  subjectId,
+  publicId,
+  sourceType,
+  title,
+  description,
+  rawTextContent = null,
+  originalFilename = null,
+  filePath = null,
+  fileSizeBytes = null,
+  mimeType = null,
+  status,
+}) {
   const sql = `
     INSERT INTO source_materials
-      (public_id, teacher_id, subject_id, source_type, title, description, raw_text_content, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (public_id, teacher_id, subject_id, source_type, title, description, raw_text_content,
+       original_filename, file_path, file_size_bytes, mime_type, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const [result] = await db.query(sql, [
     publicId,
@@ -47,6 +68,10 @@ async function create({ teacherId, subjectId, publicId, sourceType, title, descr
     title,
     description,
     rawTextContent,
+    originalFilename,
+    filePath,
+    fileSizeBytes,
+    mimeType,
     status,
   ]);
   return result.insertId;
@@ -64,8 +89,8 @@ async function create({ teacherId, subjectId, publicId, sourceType, title, descr
 async function findByPublicId(teacherId, publicId) {
   const sql = `
     SELECT sm.id, sm.public_id, sm.teacher_id, sm.subject_id, sub.public_id AS subject_public_id,
-           sm.source_type, sm.title, sm.description, sm.original_filename, sm.file_size_bytes,
-           sm.mime_type, sm.raw_text_content, sm.status, sm.created_at, sm.updated_at
+           sm.source_type, sm.title, sm.description, sm.original_filename, sm.file_path,
+           sm.file_size_bytes, sm.mime_type, sm.raw_text_content, sm.status, sm.created_at, sm.updated_at
     FROM source_materials sm
     INNER JOIN subjects sub ON sub.id = sm.subject_id
     WHERE sm.public_id = ? AND sm.teacher_id = ? AND sm.deleted_at IS NULL
