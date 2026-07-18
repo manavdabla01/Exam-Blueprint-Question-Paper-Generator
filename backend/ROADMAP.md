@@ -6,16 +6,17 @@
 - Security Foundation
 - Authentication
 - Academic Domain
+- Secure Upload Pipeline
 
 ## 🚧 In Progress
 
-- Secure Upload Pipeline
+- AI Processing Pipeline
 
 ## ⏳ Planned
 
 - Claude Vision OCR
-- AI Processing
-- Exam Blueprint
-- Question Paper Generation
+- Python Processing Service
+- Exam Blueprint Engine
+- Question Paper Generator
 - Frontend
 - Deployment
