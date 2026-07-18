@@ -80,3 +80,26 @@ All notable changes to this project will be documented here.
 - Source type ↔ MIME verification
 - Best-effort orphan cleanup
 - Hidden filesystem paths
+
+## v0.5.0 - Processing Pipeline
+
+### Added
+
+- Processing module
+- Transactional processing state machine
+- Row-level locking
+- Processing lifecycle management
+- Retry attempt tracking
+- Failure reason tracking
+
+### Security
+
+- Race-condition safe processing
+- Tenant-scoped processing
+- Duplicate processing prevention
+
+### Database
+
+- Added processing timestamps
+- Added retry counters
+- Added processing index

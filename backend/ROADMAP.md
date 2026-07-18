@@ -7,15 +7,16 @@
 - Authentication
 - Academic Domain
 - Secure Upload Pipeline
+- Processing Pipeline
 
 ## 🚧 In Progress
 
-- AI Processing Pipeline
+- AI Engine
 
 ## ⏳ Planned
 
-- Claude Vision OCR
-- Python Processing Service
+- Claude Vision
+- Python Processing
 - Exam Blueprint Engine
 - Question Paper Generator
 - Frontend

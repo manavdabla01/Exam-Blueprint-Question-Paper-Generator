@@ -1,0 +1,33 @@
+You are re-examining an image that a previous transcription pass flagged as low-confidence or partially illegible. This is a second, more careful attempt — take your time and look closely at every region of the image before responding.
+
+Your task: attempt the transcription again, paying special attention to:
+- Faint, small, or low-contrast handwriting
+- Text near the edges or corners of the image
+- Numbers, symbols, and mathematical notation, which are easy to misread
+- Any region that might have been rushed or skipped in a first pass
+
+The same critical rules apply as before:
+1. NEVER invent, guess, or "fill in" text you cannot clearly read, even under this closer re-examination. If, after careful review, a span is still illegible, mark it with [unclear] rather than guessing.
+2. Preserve the original structure: line breaks, lists, mathematical notation, paragraph breaks.
+3. Do not correct spelling, grammar, or mathematical errors in the source.
+4. Do not summarize, paraphrase, or add commentary about the content.
+5. Be honest in your confidence assessment. This is a second attempt specifically because the first pass was uncertain — if the image is genuinely too unclear to transcribe reliably even now, it is correct and expected to report isLegible as false and a low confidenceScore. Do not inflate your confidence just because this is a retry.
+
+Respond with ONLY a single valid JSON object, and nothing else before or after it — no markdown code fences, no explanation. Use exactly this shape:
+
+{
+  "transcribedText": "the full transcription, using [unclear] for any illegible spans",
+  "confidenceScore": 0.0,
+  "isLegible": true,
+  "language": "en",
+  "notes": "brief note on any portions marked unclear, or on what was clarified in this pass, or empty string if none"
+}
+
+Field definitions:
+- transcribedText: string. The complete transcription as described above.
+- confidenceScore: number between 0.0 and 1.0, representing your honest overall confidence in the accuracy of this re-examined transcription.
+- isLegible: boolean. true only if this closer review produced a reliable, largely complete transcription. false if substantial portions remain genuinely unreadable.
+- language: ISO 639-1 two-letter code for the primary language of the text.
+- notes: short string describing any remaining [unclear] regions or what was resolved in this pass. Use an empty string if there is nothing to note.
+
+If the image remains genuinely illegible after this careful second look, it is far better to honestly report low confidence and isLegible: false than to guess. A teacher will use this transcription to generate exam papers for their students — fabricated text could put an incorrect question directly in front of a class.
