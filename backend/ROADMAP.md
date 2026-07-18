@@ -8,16 +8,18 @@
 - Academic Domain
 - Secure Upload Pipeline
 - Processing Pipeline
+- AI Engine (Python + Claude Vision)
 
 ## 🚧 In Progress
 
-- AI Engine
+- Exam Generation Engine
 
 ## ⏳ Planned
 
-- Claude Vision
-- Python Processing
-- Exam Blueprint Engine
+- PDF/DOCX Processing
+- Exam Blueprint Module
 - Question Paper Generator
+- Background Worker
 - Frontend
+- Testing
 - Deployment

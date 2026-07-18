@@ -249,6 +249,31 @@ async function softDeleteByPublicId(teacherId, publicId) {
   return result.affectedRows;
 }
 
+/**
+ * Finds all non-deleted, successfully processed ('processed' status)
+ * source materials for a given subject, scoped to the owning teacher.
+ * Used by the exam generation flow to assemble the AI context from only
+ * the content that has actually completed the processing pipeline
+ * (text sources, which are processed immediately at creation, or
+ * image sources that have passed the OCR/legibility gatekeeper) — never
+ * from sources still pending, mid-processing, or failed.
+ *
+ * @param {number} teacherId - Internal auto-increment teacher id of the requester
+ * @param {number} subjectId - Internal auto-increment subject id to filter by
+ * @returns {Promise<Array<Object>>} Processed source material rows, including raw_text_content
+ */
+async function findProcessedBySubject(teacherId, subjectId) {
+  const sql = `
+    SELECT id, public_id, teacher_id, subject_id, source_type, title, description,
+           raw_text_content, status
+    FROM source_materials
+    WHERE teacher_id = ? AND subject_id = ? AND status = 'processed' AND deleted_at IS NULL
+    ORDER BY created_at ASC
+  `;
+  const [rows] = await db.query(sql, [teacherId, subjectId]);
+  return rows;
+}
+
 module.exports = {
   create,
   findByPublicId,
@@ -256,4 +281,5 @@ module.exports = {
   listByTeacher,
   updateByPublicId,
   softDeleteByPublicId,
+  findProcessedBySubject,
 };

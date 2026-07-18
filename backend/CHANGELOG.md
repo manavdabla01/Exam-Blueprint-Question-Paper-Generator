@@ -103,3 +103,27 @@ All notable changes to this project will be documented here.
 - Added processing timestamps
 - Added retry counters
 - Added processing index
+
+
+## v0.6.0 - AI Engine
+
+### Added
+
+- Python image preprocessing
+- Claude Vision OCR
+- Handwriting legibility gatekeeper
+- Automatic self-correction pass
+- OCR pipeline integration
+- AI transcription endpoint
+
+### Improved
+
+- Processing pipeline now performs complete OCR lifecycle
+- Infrastructure failures automatically recover processing state
+
+### Security
+
+- argv-only Python execution
+- Temporary file cleanup
+- No OCR hallucination policy
+- Distinct handling for infrastructure vs legibility failures
