@@ -22,6 +22,9 @@ function toPublicGeneratedExam(row, includeContent = false) {
     status: row.status,
     claudeModelUsed: row.claude_model_used,
     generationAttempts: row.generation_attempts,
+    generationDurationMs: row.generation_duration_ms,
+    generatedAt: row.generated_at,
+    failureReason: row.failure_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

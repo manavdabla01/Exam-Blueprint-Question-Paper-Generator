@@ -11,6 +11,7 @@ const asyncHandler = require('../../utils/asyncHandler');
 const { successResponse, paginationResponse } = require('../../utils/apiResponse');
 const HTTP_STATUS = require('../../constants/httpStatus');
 const generatedExamService = require('./generatedExam.service');
+const generationService = require('./generation.service');
 const { sanitizeString } = require('../../utils/sanitize.util');
 
 /**
@@ -88,9 +89,32 @@ const deleteGeneratedExam = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * POST /api/v1/generated-exams/:id/generate
+ * Runs the AI generation pipeline for a queued generated exam: loads the
+ * blueprint and processed source content, calls Claude, validates the
+ * result against the blueprint, and persists it. Returns the finalized
+ * exam (status 'completed' with content, or throws a 422/502/503/504
+ * error if generation failed — the record itself is updated to 'failed'
+ * with a stored reason regardless of how the controller responds).
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+const generateExam = asyncHandler(async (req, res) => {
+  const finalState = await generationService.runGenerationPipeline(req.teacher.id, req.params.id);
+
+  return successResponse(res, {
+    statusCode: HTTP_STATUS.OK,
+    message: 'Exam generation completed',
+    data: finalState,
+  });
+});
+
 module.exports = {
   createGeneratedExam,
   listGeneratedExams,
   getGeneratedExam,
   deleteGeneratedExam,
+  generateExam,
 };

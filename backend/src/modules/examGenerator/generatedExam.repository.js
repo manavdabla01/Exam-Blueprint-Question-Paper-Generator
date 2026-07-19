@@ -76,7 +76,8 @@ async function findByPublicId(teacherId, publicId) {
   const sql = `
     SELECT ge.id, ge.public_id, ge.teacher_id, ge.subject_id, sub.public_id AS subject_public_id,
            ge.blueprint_id, eb.public_id AS blueprint_public_id, ge.title, ge.content_json, ge.status,
-           ge.claude_model_used, ge.generation_attempts, ge.created_at, ge.updated_at
+           ge.claude_model_used, ge.generation_attempts, ge.generation_duration_ms, ge.generated_at,
+           ge.failure_reason, ge.created_at, ge.updated_at
     FROM generated_exams ge
     INNER JOIN subjects sub ON sub.id = ge.subject_id
     INNER JOIN exam_blueprints eb ON eb.id = ge.blueprint_id
@@ -161,7 +162,8 @@ async function listByTeacher({
   const sql = `
     SELECT ge.id, ge.public_id, ge.teacher_id, ge.subject_id, sub.public_id AS subject_public_id,
            ge.blueprint_id, eb.public_id AS blueprint_public_id, ge.title, ge.status,
-           ge.claude_model_used, ge.generation_attempts, ge.created_at, ge.updated_at
+           ge.claude_model_used, ge.generation_attempts, ge.generation_duration_ms, ge.generated_at,
+           ge.failure_reason, ge.created_at, ge.updated_at
     FROM generated_exams ge
     INNER JOIN subjects sub ON sub.id = ge.subject_id
     INNER JOIN exam_blueprints eb ON eb.id = ge.blueprint_id
@@ -193,10 +195,110 @@ async function softDeleteByPublicId(teacherId, publicId) {
   return result.affectedRows;
 }
 
+/**
+ * Finds a single generated exam by its internal auto-increment id,
+ * scoped to the owning teacher. Used by the generation pipeline to read
+ * back current state without needing the public UUID at every step.
+ *
+ * @param {number} teacherId - Internal auto-increment teacher id of the requester
+ * @param {number} id - Internal auto-increment generated_exams id
+ * @returns {Promise<Object|null>} Row with parsed content_json, or null if not found/not owned/deleted
+ */
+async function findByIdForOwner(teacherId, id) {
+  const sql = `
+    SELECT ge.id, ge.public_id, ge.teacher_id, ge.subject_id, sub.public_id AS subject_public_id,
+           ge.blueprint_id, eb.public_id AS blueprint_public_id, ge.title, ge.content_json, ge.status,
+           ge.claude_model_used, ge.generation_attempts, ge.generation_duration_ms, ge.generated_at,
+           ge.failure_reason, ge.created_at, ge.updated_at
+    FROM generated_exams ge
+    INNER JOIN subjects sub ON sub.id = ge.subject_id
+    INNER JOIN exam_blueprints eb ON eb.id = ge.blueprint_id
+    WHERE ge.id = ? AND ge.teacher_id = ? AND ge.deleted_at IS NULL
+    LIMIT 1
+  `;
+  const [rows] = await db.query(sql, [id, teacherId]);
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  row.content_json = parseContentJson(row.content_json);
+  return row;
+}
+
+/**
+ * Transitions a generated exam into 'generating': increments
+ * `generation_attempts`. Only valid from 'queued' (enforced by the
+ * service layer's status check before calling this, not by the SQL
+ * itself, matching the pattern used by processing.repository.js).
+ *
+ * @param {number} id - Internal auto-increment generated_exams id
+ * @returns {Promise<void>}
+ */
+async function markGenerating(id) {
+  const sql = `
+    UPDATE generated_exams
+    SET status = 'generating',
+        generation_attempts = generation_attempts + 1,
+        failure_reason = NULL
+    WHERE id = ?
+  `;
+  await db.query(sql, [id]);
+}
+
+/**
+ * Transitions a generated exam into 'completed': persists the validated
+ * content_json, the Claude model used, generation duration, and
+ * completion timestamp. Only ever called after the generated content has
+ * passed full structural/blueprint validation — never with partial or
+ * unvalidated content.
+ *
+ * @param {number} id - Internal auto-increment generated_exams id
+ * @param {Object} data
+ * @param {Object} data.content - The validated generated exam content
+ * @param {string} data.claudeModelUsed - The Claude model identifier used
+ * @param {number} data.generationDurationMs - Total generation duration in milliseconds
+ * @returns {Promise<void>}
+ */
+async function markCompleted(id, { content, claudeModelUsed, generationDurationMs }) {
+  const sql = `
+    UPDATE generated_exams
+    SET status = 'completed',
+        content_json = ?,
+        claude_model_used = ?,
+        generation_duration_ms = ?,
+        generated_at = NOW(),
+        failure_reason = NULL
+    WHERE id = ?
+  `;
+  await db.query(sql, [JSON.stringify(content), claudeModelUsed, generationDurationMs, id]);
+}
+
+/**
+ * Transitions a generated exam into 'failed', recording the failure
+ * reason. Deliberately does NOT touch `content_json` — a failed
+ * generation never overwrites the existing (queued-placeholder) content
+ * with partial or invalid output.
+ *
+ * @param {number} id - Internal auto-increment generated_exams id
+ * @param {string} failureReason - Human-readable, length-bounded failure description
+ * @returns {Promise<void>}
+ */
+async function markFailed(id, failureReason) {
+  const sql = `
+    UPDATE generated_exams
+    SET status = 'failed',
+        failure_reason = ?
+    WHERE id = ?
+  `;
+  await db.query(sql, [failureReason, id]);
+}
+
 module.exports = {
   create,
   findByPublicId,
+  findByIdForOwner,
   countByTeacher,
   listByTeacher,
   softDeleteByPublicId,
+  markGenerating,
+  markCompleted,
+  markFailed,
 };

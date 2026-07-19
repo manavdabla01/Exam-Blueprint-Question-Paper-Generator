@@ -127,3 +127,27 @@ All notable changes to this project will be documented here.
 - Temporary file cleanup
 - No OCR hallucination policy
 - Distinct handling for infrastructure vs legibility failures
+
+
+## v0.7.0 - Exam Blueprint Foundation
+
+### Added
+
+- Exam blueprint CRUD
+- Blueprint structure validation
+- Queued exam generation requests
+- AI context builder
+- Processed source selection
+- Generated exam metadata management
+
+### Validation
+
+- Difficulty distribution totals
+- Question type totals
+- Chapter weightage totals
+
+### Security
+
+- Tenant ownership validation
+- Processed-source enforcement
+- Queue-only generation workflow

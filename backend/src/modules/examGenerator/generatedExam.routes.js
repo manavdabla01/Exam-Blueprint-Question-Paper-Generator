@@ -11,6 +11,7 @@ const express = require('express');
 const { authenticate } = require('../../middlewares/auth.middleware');
 const resolveTeacherContext = require('../../middlewares/resolveTeacherContext.middleware');
 const validate = require('../../middlewares/validate.middleware');
+const { aiLimiter } = require('../../middlewares/rateLimiter.middleware');
 const generatedExamController = require('./generatedExam.controller');
 const {
   createGeneratedExamSchema,
@@ -30,6 +31,13 @@ router.get(
   '/:id',
   validate(generatedExamIdParamSchema, 'params'),
   generatedExamController.getGeneratedExam
+);
+
+router.post(
+  '/:id/generate',
+  aiLimiter(),
+  validate(generatedExamIdParamSchema, 'params'),
+  generatedExamController.generateExam
 );
 
 router.delete(
