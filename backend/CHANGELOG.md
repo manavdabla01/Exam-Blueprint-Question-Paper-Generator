@@ -151,3 +151,27 @@ All notable changes to this project will be documented here.
 - Tenant ownership validation
 - Processed-source enforcement
 - Queue-only generation workflow
+
+## v0.8.0 - AI Exam Generation
+
+### Added
+
+- Claude-powered exam generation
+- Blueprint-aware validation
+- Structured AI prompting
+- Generation retry mechanism
+- Exam persistence
+- Generation metrics
+
+### Validation
+
+- Strict JSON validation
+- Question count validation
+- Marks validation
+- Blueprint consistency validation
+
+### Security
+
+- Tenant ownership enforcement
+- No partial exam persistence
+- Retry only for transient AI failures

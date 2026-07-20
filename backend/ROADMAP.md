@@ -10,16 +10,16 @@
 - Processing Pipeline
 - AI OCR Engine
 - Exam Blueprint Foundation
+- AI Question Generation
 
 ## 🚧 In Progress
 
-- AI Question Generation
+- Background Worker & PDF Export
 
 ## ⏳ Planned
 
-- Background Worker
-- PDF Export
-- Frontend
+- React Frontend
 - Testing
 - Docker
 - Deployment
+- v1.1 Academic Hierarchy (Classes → Subjects)
