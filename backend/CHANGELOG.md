@@ -197,3 +197,22 @@ All notable changes to this project will be documented here.
 - Tenant ownership validation
 - Public IDs only
 - Binary PDF response
+
+
+## v1.0.0-backend - Backend MVP Complete
+
+### Added
+
+- Background worker system
+- OCR worker
+- Exam generation worker
+- Configurable scheduler
+- Graceful shutdown
+- MySQL advisory locking
+
+### Reliability
+
+- Single worker instance
+- Configurable polling
+- Fault-tolerant scheduling
+- Worker/API process separation

@@ -16,6 +16,7 @@ const processingRoutes = require('../modules/processing/processing.routes');
 const aiRoutes = require('../modules/ai/ai.routes');
 const examBlueprintRoutes = require('../modules/examBlueprint/examBlueprint.routes');
 const generatedExamRoutes = require('../modules/examGenerator/generatedExam.routes');
+const pdfRoutes = require('../modules/pdf/pdf.routes');
 
 const router = express.Router();
 
@@ -26,5 +27,6 @@ router.use('/processing', processingRoutes);
 router.use('/ai', aiRoutes);
 router.use('/exam-blueprints', examBlueprintRoutes);
 router.use('/generated-exams', generatedExamRoutes);
+router.use('/generated-exams', pdfRoutes);
 
 module.exports = router;
