@@ -175,3 +175,25 @@ All notable changes to this project will be documented here.
 - Tenant ownership enforcement
 - No partial exam persistence
 - Retry only for transient AI failures
+
+## v0.9.0 - PDF Export
+
+### Added
+
+- Print-ready PDF generation
+- Unicode font embedding
+- Multi-page exam rendering
+- A4 portrait layout
+- Page numbering
+- Teacher-owned PDF downloads
+
+### Performance
+
+- In-memory PDF generation
+- No temporary files
+
+### Security
+
+- Tenant ownership validation
+- Public IDs only
+- Binary PDF response

@@ -291,6 +291,31 @@ async function markFailed(id, failureReason) {
   await db.query(sql, [failureReason, id]);
 }
 
+/**
+ * Claims the next globally queued generated exam for generation, locking
+ * it within the caller's transaction. Uses `FOR UPDATE SKIP LOCKED`
+ * (MySQL 8+), mirroring processing.repository.js's
+ * `findNextPendingForUpdate` — multiple concurrent callers can each
+ * claim a different queued row without blocking on one another. Used by
+ * the background generation worker (src/workers/generation.worker.js),
+ * never by any HTTP-facing controller.
+ *
+ * @param {import('mysql2/promise').PoolConnection} connection - Active transaction connection
+ * @returns {Promise<Object|null>} A minimal row ({ id, public_id, teacher_id }), or null if no queued items exist
+ */
+async function findNextQueuedForUpdate(connection) {
+  const sql = `
+    SELECT id, public_id, teacher_id
+    FROM generated_exams
+    WHERE status = 'queued' AND deleted_at IS NULL
+    ORDER BY created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  `;
+  const [rows] = await connection.query(sql);
+  return rows.length > 0 ? rows[0] : null;
+}
+
 module.exports = {
   create,
   findByPublicId,
@@ -301,4 +326,5 @@ module.exports = {
   markGenerating,
   markCompleted,
   markFailed,
+  findNextQueuedForUpdate,
 };

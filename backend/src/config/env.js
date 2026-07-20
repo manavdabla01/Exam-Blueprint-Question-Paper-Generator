@@ -64,6 +64,10 @@ const ENV_SCHEMA = [
 
   { key: 'LOG_LEVEL', required: false, type: 'string', default: 'info' },
   { key: 'LOG_DIR', required: false, type: 'string', default: './logs' },
+
+  { key: 'WORKER_ENABLED', required: false, type: 'string', default: 'true' },
+  { key: 'WORKER_POLL_INTERVAL_MS', required: false, type: 'number', default: 5000 },
+  { key: 'WORKER_BATCH_SIZE', required: false, type: 'number', default: 5 },
 ];
 
 /**
@@ -187,6 +191,12 @@ const config = Object.freeze({
   logging: Object.freeze({
     level: rawConfig.LOG_LEVEL,
     dir: rawConfig.LOG_DIR,
+  }),
+
+  worker: Object.freeze({
+    enabled: String(rawConfig.WORKER_ENABLED).toLowerCase() !== 'false',
+    pollIntervalMs: rawConfig.WORKER_POLL_INTERVAL_MS,
+    batchSize: rawConfig.WORKER_BATCH_SIZE,
   }),
 });
 

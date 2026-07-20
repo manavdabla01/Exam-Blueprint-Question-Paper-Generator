@@ -11,15 +11,17 @@
 - AI OCR Engine
 - Exam Blueprint Foundation
 - AI Question Generation
+- PDF Export
 
 ## 🚧 In Progress
 
-- Background Worker & PDF Export
+- Background Worker
 
 ## ⏳ Planned
 
+- Backend QA
 - React Frontend
-- Testing
 - Docker
 - Deployment
-- v1.1 Academic Hierarchy (Classes → Subjects)
+- Documentation
+- v1.1 Academic Hierarchy
